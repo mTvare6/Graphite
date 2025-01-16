@@ -92,7 +92,7 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 		};
 
 		match message {
-			TransformLayerMessage::Overlays(overlay_context) => {
+			TransformLayerMessage::Overlays(mut overlay_context) => {
 				for layer in document.metadata().all_layers() {
 					if !document.network_interface.is_artboard(&layer.to_node(), &[]) {
 						continue;
@@ -124,6 +124,33 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 						TransformOperation::Rotating(rotation) => format!("Rotating by {}°", format_rounded(rotation.to_f64(self.snap).to_degrees())),
 						TransformOperation::Scaling(scale) => format!("Scaling {}", axis_text(scale.to_dvec(self.snap), false)),
 					};
+
+					match self.transform_operation {
+						TransformOperation::None => (),
+						TransformOperation::Grabbing(_) => {
+							let vec_to_end = self.mouse_position - self.start_mouse;
+							let (start, end) = match axis_constraint {
+								Axis::Both => (self.pivot, self.pivot + vec_to_end),
+								Axis::X => (self.pivot, self.pivot + vec_to_end.with_y(0.0)),
+								Axis::Y => (self.pivot, self.pivot + vec_to_end.with_x(0.0)),
+							};
+
+							overlay_context.line(start, end, None);
+						}
+						TransformOperation::Scaling(scale) => {
+							let scale = scale.to_f64(self.snap);
+							let text = format!("{}x", format_rounded(scale));
+							let radius = self.start_mouse.distance(self.pivot);
+
+							overlay_context.draw_scale(self.pivot, scale, radius, &text);
+						}
+						TransformOperation::Rotating(rotation) => {
+							let angle = rotation.to_f64(self.snap);
+							let radius = self.start_mouse.distance(self.pivot);
+
+							overlay_context.draw_angle(self.pivot, radius, angle);
+						}
+					}
 
 					overlay_context.text(&grs_value_text, COLOR_OVERLAY_WHITE, Some(COLOR_OVERLAY_SNAP_BACKGROUND), transform, 4., [Pivot::Start, Pivot::End]);
 				}

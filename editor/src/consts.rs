@@ -87,6 +87,7 @@ pub const COLOR_OVERLAY_GREEN: &str = "#63ce63";
 pub const COLOR_OVERLAY_RED: &str = "#ef5454";
 pub const COLOR_OVERLAY_GRAY: &str = "#cccccc";
 pub const COLOR_OVERLAY_WHITE: &str = "#ffffff";
+pub const COLOR_OVERLAY_TRANSPARENT: &str = "#ffffff00";
 pub const COLOR_OVERLAY_SNAP_BACKGROUND: &str = "#000000cc";
 
 // Document

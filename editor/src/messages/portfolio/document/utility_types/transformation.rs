@@ -227,13 +227,20 @@ impl Default for Scale {
 
 impl Scale {
 	pub fn to_dvec(self, snap: bool) -> DVec2 {
-		let factor = if let Some(value) = self.typed_factor { value } else { self.dragged_factor };
-		let factor = if snap { (factor / SCALE_SNAP_INTERVAL).round() * SCALE_SNAP_INTERVAL } else { factor };
-
+		let factor = self.to_f64(snap);
 		match self.constraint {
 			Axis::Both => DVec2::splat(factor),
 			Axis::X => DVec2::new(factor, 1.),
 			Axis::Y => DVec2::new(1., factor),
+		}
+	}
+
+	pub fn to_f64(self, snap: bool) -> f64 {
+		let factor = if let Some(value) = self.typed_factor { value } else { self.dragged_factor };
+		if snap {
+			(factor / SCALE_SNAP_INTERVAL).round() * SCALE_SNAP_INTERVAL
+		} else {
+			factor
 		}
 	}
 
