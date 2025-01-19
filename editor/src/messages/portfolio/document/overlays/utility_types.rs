@@ -221,7 +221,7 @@ impl OverlayContext {
 		self.render_context.stroke();
 	}
 
-	pub fn draw_angle(&mut self, pivot: DVec2, radius: f64, angle: f64) {
+	pub fn draw_angle(&mut self, pivot: DVec2, radius: f64, arc_radius: f64, angle: f64) {
 		let color_line = COLOR_OVERLAY_BLUE;
 
 		let end_point1 = pivot + radius * DVec2::from_angle(angle);
@@ -229,7 +229,7 @@ impl OverlayContext {
 		self.line(pivot, end_point1, Some(color_line));
 		self.line(pivot, end_point2, Some(color_line));
 
-		self.draw_arc(pivot, radius * 0.1, 0., angle % TAU);
+		self.draw_arc(pivot, arc_radius, 0., angle % TAU);
 	}
 
 	pub fn draw_scale(&mut self, start: DVec2, scale: f64, radius: f64, text: &str) {
@@ -357,6 +357,10 @@ impl OverlayContext {
 
 		self.render_context.set_stroke_style_str(COLOR_OVERLAY_BLUE);
 		self.render_context.stroke();
+	}
+
+	pub fn get_width(&self, text: &str) -> f64 {
+		self.render_context.measure_text(text).expect("Failed to measure text dimensions").width()
 	}
 
 	pub fn text(&self, text: &str, font_color: &str, background_color: Option<&str>, transform: DAffine2, padding: f64, pivot: [Pivot; 2]) {

@@ -163,14 +163,14 @@ impl Translation {
 		Self {
 			dragged_distance: self.dragged_distance + delta,
 			typed_distance: None,
-			constraint: self.constraint,
+			..self
 		}
 	}
 	pub fn set_amount(self, change: DVec2) -> Self {
 		Self {
 			dragged_distance: change,
 			typed_distance: None,
-			constraint: self.constraint,
+			..self
 		}
 	}
 }
@@ -190,6 +190,13 @@ impl Rotation {
 			(self.dragged_angle / snap_resolution).round() * snap_resolution
 		} else {
 			self.dragged_angle
+		}
+	}
+
+	pub fn negate(self) -> Self {
+		Self {
+			dragged_angle: -self.dragged_angle,
+			..self
 		}
 	}
 
@@ -235,6 +242,13 @@ impl Scale {
 		}
 	}
 
+	pub fn negate(self) -> Self {
+		Self {
+			dragged_factor: -self.dragged_factor,
+			..self
+		}
+	}
+
 	pub fn to_f64(self, snap: bool) -> f64 {
 		let factor = if let Some(value) = self.typed_factor { value } else { self.dragged_factor };
 		if snap {
@@ -249,7 +263,7 @@ impl Scale {
 		Self {
 			dragged_factor: self.dragged_factor + delta,
 			typed_factor: None,
-			constraint: self.constraint,
+			..self
 		}
 	}
 
@@ -257,7 +271,7 @@ impl Scale {
 		Self {
 			dragged_factor: 1. + change,
 			typed_factor: None,
-			constraint: self.constraint,
+			..self
 		}
 	}
 }
@@ -324,6 +338,18 @@ impl TransformOperation {
 
 		let hint_data = HintData(vec![HintGroup(input_hints)]);
 		responses.add(FrontendMessage::UpdateInputHints { hint_data });
+	}
+
+	pub fn negate(&mut self, selected: &mut Selected, snapping: bool) {
+		if *self != TransformOperation::None {
+			*self = match self {
+				TransformOperation::None => unreachable!(),
+				TransformOperation::Grabbing(_) => *self,
+				TransformOperation::Rotating(rotation) => TransformOperation::Rotating(rotation.negate()),
+				TransformOperation::Scaling(scale) => TransformOperation::Scaling(scale.negate()),
+			};
+			self.apply_transform_operation(selected, snapping);
+		}
 	}
 }
 
