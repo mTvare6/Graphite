@@ -1302,6 +1302,13 @@ impl Fsm for SelectToolFsmState {
 				]);
 				responses.add(FrontendMessage::UpdateInputHints { hint_data });
 			}
+			SelectToolFsmState::ResizingBounds => {
+				let hint_data = HintData(vec![
+					HintGroup(vec![HintInfo::mouse(MouseMotion::Rmb, ""), HintInfo::keys([Key::Escape], "Cancel").prepend_slash()]),
+					HintGroup(vec![HintInfo::keys([Key::Alt], "From Center"), HintInfo::keys([Key::Shift], "Constrain to Axis")]),
+				]);
+				responses.add(FrontendMessage::UpdateInputHints { hint_data });
+			}
 			_ => {}
 		}
 	}
