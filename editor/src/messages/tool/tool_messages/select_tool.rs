@@ -1250,6 +1250,7 @@ impl Fsm for SelectToolFsmState {
 	}
 
 	fn update_hints(&self, responses: &mut VecDeque<Message>) {
+		debug!("{self:?}");
 		match self {
 			SelectToolFsmState::Ready { selection } => {
 				let hint_data = HintData(vec![
@@ -1299,6 +1300,20 @@ impl Fsm for SelectToolFsmState {
 					// TODO: Re-select deselected layers during drag when Shift is pressed, and re-deselect if Shift is released before drag ends.
 					// TODO: (See https://discord.com/channels/731730685944922173/1216976541947531264/1321360311298818048)
 					// HintGroup(vec![HintInfo::keys([Key::Shift], "Extend Selection")])
+				]);
+				responses.add(FrontendMessage::UpdateInputHints { hint_data });
+			}
+			SelectToolFsmState::ResizingBounds => {
+				let hint_data = HintData(vec![
+					HintGroup(vec![HintInfo::mouse(MouseMotion::Rmb, ""), HintInfo::keys([Key::Escape], "Cancel").prepend_slash()]),
+					HintGroup(vec![HintInfo::keys([Key::Alt], "Center Pivot"), HintInfo::keys([Key::Shift], "Preserve Aspect")]),
+				]);
+				responses.add(FrontendMessage::UpdateInputHints { hint_data });
+			}
+			Self::RotatingBounds => {
+				let hint_data = HintData(vec![
+					HintGroup(vec![HintInfo::mouse(MouseMotion::Rmb, ""), HintInfo::keys([Key::Escape], "Cancel").prepend_slash()]),
+					HintGroup(vec![HintInfo::keys([Key::Control], "Snap")]),
 				]);
 				responses.add(FrontendMessage::UpdateInputHints { hint_data });
 			}
