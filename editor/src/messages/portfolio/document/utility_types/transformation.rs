@@ -307,19 +307,20 @@ impl TransformOperation {
 		if self != &TransformOperation::None {
 			let transformation = match self {
 				TransformOperation::Grabbing(translation) => {
-					let translate = DAffine2::from_translation(transform.transform_vector2(translation.to_dvec(transform, increment_mode)));
+					let transform = DAffine2::from_translation(transform.transform_vector2(translation.to_dvec(transform, increment_mode)));
 					if local {
-						DAffine2::from_angle(local_axis_transform_angle) * translate * DAffine2::from_angle(-local_axis_transform_angle)
+						DAffine2::from_angle(local_axis_transform_angle) * transform * DAffine2::from_angle(-local_axis_transform_angle)
 					} else {
-						translate
+						transform
 					}
 				}
 				TransformOperation::Rotating(rotation) => DAffine2::from_angle(rotation.to_f64(increment_mode)),
 				TransformOperation::Scaling(scale) => {
+					let transform = DAffine2::from_scale(scale.to_dvec(increment_mode));
 					if local {
-						DAffine2::from_angle(local_axis_transform_angle) * DAffine2::from_scale(scale.to_dvec(increment_mode)) * DAffine2::from_angle(-local_axis_transform_angle)
+						DAffine2::from_angle(local_axis_transform_angle) * transform * DAffine2::from_angle(-local_axis_transform_angle)
 					} else {
-						DAffine2::from_scale(scale.to_dvec(increment_mode))
+						transform
 					}
 				}
 				TransformOperation::None => unreachable!(),

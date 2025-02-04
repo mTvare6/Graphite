@@ -2,6 +2,7 @@ use crate::consts::{ANGLE_MEASURE_RADIUS_FACTOR, ARC_MEASURE_RADIUS_FACTOR_RANGE
 use crate::messages::input_mapper::utility_types::input_mouse::ViewportPosition;
 use crate::messages::portfolio::document::overlays::utility_types::{OverlayProvider, Pivot};
 use crate::messages::portfolio::document::utility_types::transformation::{Axis, OriginalTransforms, Selected, TransformOperation, Typing};
+use crate::messages::portfolio::document::utility_types::misc::PTZ;
 use crate::messages::prelude::*;
 use crate::messages::tool::common_functionality::shape_editor::ShapeState;
 use crate::messages::tool::tool_messages::tool_prelude::Key;
@@ -33,6 +34,8 @@ pub struct TransformLayerMessageHandler {
 
 	mouse_position: ViewportPosition,
 	start_mouse: ViewportPosition,
+	start_ptz: PTZ,
+    transform: DAffine2,
 
 	original_transforms: OriginalTransforms,
 	pivot: DVec2,
@@ -126,7 +129,7 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 			Some(&mut self.handle),
 		);
 
-		let mut begin_operation = |operation: TransformOperation, typing: &mut Typing, mouse_position: &mut DVec2, start_mouse: &mut DVec2| {
+		let mut begin_operation = |operation: TransformOperation, typing: &mut Typing, mouse_position: &mut DVec2, start_mouse: &mut DVec2, start_ptz: &mut PTZ, transform: &mut DAffine2| {
 			if operation != TransformOperation::None {
 				selected.revert_operation();
 				typing.clear();
@@ -162,6 +165,8 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 
 			*mouse_position = input.mouse.position;
 			*start_mouse = input.mouse.position;
+			*start_ptz = document.document_ptz;
+            *transform = document.metadata().document_to_viewport;
 			selected.original_transforms.clear();
 
 			selected.responses.add(DocumentMessage::StartTransaction);
@@ -190,9 +195,11 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 					match self.transform_operation {
 						TransformOperation::None => (),
 						TransformOperation::Grabbing(translation) => {
-							let translation = translation.to_dvec(document_to_viewport, self.increments);
-							let viewport_translate = document_to_viewport.transform_vector2(translation);
-							let quad = Quad::from_box([self.grab_target, self.grab_target + viewport_translate]).0;
+							let translation = translation.to_dvec(self.transform, self.increments);
+                            let transform = DAffine2::from_translation( document_to_viewport.transform_vector2(document.document_ptz.pan - self.start_ptz.pan));
+							let viewport_translate = self.transform.transform_vector2(translation);
+							let quad = transform * Quad::from_box([self.grab_target , self.grab_target + viewport_translate ]);
+                            let quad = quad.0;
 							let e1 = (self.fixed_bbox.0[1] - self.fixed_bbox.0[0]).normalize();
 
 							if matches!(axis_constraint, Axis::Both | Axis::X) && translation.x != 0. {
@@ -336,7 +343,7 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 					return;
 				}
 
-				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse);
+				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse, &mut self.start_ptz, &mut self.transform);
 
 				self.transform_operation = TransformOperation::Grabbing(Default::default());
 				self.local = false;
@@ -389,7 +396,7 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 					}
 				}
 
-				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse);
+				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse, &mut self.start_ptz, &mut self.transform);
 
 				self.transform_operation = TransformOperation::Rotating(Default::default());
 
@@ -442,7 +449,7 @@ impl MessageHandler<TransformLayerMessage, TransformData<'_>> for TransformLayer
 					}
 				}
 
-				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse);
+				begin_operation(self.transform_operation, &mut self.typing, &mut self.mouse_position, &mut self.start_mouse, &mut self.start_ptz, &mut self.transform);
 
 				self.transform_operation = TransformOperation::Scaling(Default::default());
 
