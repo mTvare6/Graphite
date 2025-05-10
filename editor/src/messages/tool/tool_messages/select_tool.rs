@@ -569,11 +569,27 @@ impl Fsm for SelectToolFsmState {
 				// TODO: Don't use `Key::MouseMiddle` directly, instead take it as a variable from the input mappings list like in all other places; or find a better way than checking the key state
 				if !matches!(self, Self::Drawing { .. }) && !input.keyboard.get(Key::MouseMiddle as usize) {
 					// Get the layer the user is hovering over
+					let selected: Vec<_> = document.network_interface.selected_nodes().selected_visible_and_unlocked_layers(&document.network_interface).collect();
 					let click = document.click(input);
 					let not_selected_click = click.filter(|&hovered_layer| !document.network_interface.selected_nodes().selected_layers_contains(hovered_layer, document.metadata()));
 					if let Some(layer) = not_selected_click {
 						if overlay_context.visibility_settings.hover_outline() {
-							overlay_context.outline(document.metadata().layer_outline(layer), document.metadata().transform_to_viewport(layer));
+							let mut draw_layer = |layer: LayerNodeIdentifier| {
+								if layer.has_children(document.metadata()) {
+									if let Some(bounds) = document.metadata().bounding_box_viewport(layer) {
+										overlay_context.quad(Quad::from_box(bounds), None)
+									}
+								} else {
+									overlay_context.outline(document.metadata().layer_outline(layer), document.metadata().transform_to_viewport(layer));
+								}
+							};
+							if let Some(layer) = match tool_data.nested_selection_behavior {
+								NestedSelectionBehavior::Deepest => document.find_deepest(&[layer]),
+								NestedSelectionBehavior::Shallowest => layer_selected_shallowest(layer, selected, document),
+							} {
+								debug!("{}", layer.to_node().0);
+								draw_layer(layer)
+							}
 						}
 
 						// Measure with Alt held down
@@ -1731,6 +1747,38 @@ fn drag_shallowest_manipulation(responses: &mut VecDeque<Message>, selected: Vec
 			})
 			.collect(),
 	});
+}
+
+fn layer_selected_shallowest(clicked_layer: LayerNodeIdentifier, selected: Vec<LayerNodeIdentifier>, document: &DocumentMessageHandler) -> Option<LayerNodeIdentifier> {
+	if selected.is_empty() {
+		return None;
+	}
+
+	let metadata = document.metadata();
+	let selected_layers = document.network_interface.selected_nodes().selected_layers(document.metadata()).collect::<Vec<_>>();
+	let final_selection: Option<LayerNodeIdentifier> = (!selected_layers.is_empty() && selected_layers != vec![LayerNodeIdentifier::ROOT_PARENT]).then_some(()).and_then(|_| {
+		let mut relevant_layers = document.network_interface.selected_nodes().selected_layers(document.metadata()).collect::<Vec<_>>();
+		if !relevant_layers.contains(&clicked_layer) {
+			relevant_layers.push(clicked_layer);
+		}
+		clicked_layer
+			.ancestors(metadata)
+			.filter(not_artboard(document))
+			.find(|&ancestor| relevant_layers.iter().all(|layer| *layer == ancestor || ancestor.is_ancestor_of(metadata, layer)))
+			.and_then(|least_common_ancestor| {
+				let common_siblings: Vec<_> = least_common_ancestor.children(metadata).collect();
+				(clicked_layer == least_common_ancestor)
+					.then_some(least_common_ancestor)
+					.or_else(|| common_siblings.iter().find(|&&child| clicked_layer == child || child.is_ancestor_of(metadata, &clicked_layer)).copied())
+			})
+	});
+
+	if final_selection.is_some_and(|layer| selected_layers.iter().any(|selected| layer.is_child_of(metadata, selected))) {
+		return None;
+	}
+
+	let new_selected = final_selection.unwrap_or_else(|| clicked_layer.ancestors(document.metadata()).filter(not_artboard(document)).last().unwrap_or(clicked_layer));
+	Some(new_selected)
 }
 
 fn drag_deepest_manipulation(responses: &mut VecDeque<Message>, selected: Vec<LayerNodeIdentifier>, tool_data: &mut SelectToolData, document: &DocumentMessageHandler, remove: bool) {
